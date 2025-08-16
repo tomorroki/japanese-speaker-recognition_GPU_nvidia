@@ -105,7 +105,9 @@ python create_dummy_cv_embeddings.py
 
 ### 4. アプリケーション起動
 
-```bash
+仮想環境の起動
+.venv\Scripts\activate
+
 streamlit run app.py
 ```
 

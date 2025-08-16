@@ -697,11 +697,20 @@ class JapaneseSpeakerRecognizer:
             show_cv: Common Voice話者を表示するか
             
         Returns:
-            フィルタリング済みスコア辞書
+            フィルタリング済みスコア辞書（トップ10）
         """
-        filtered_scores = {}
+        # まず全スコアをソート
+        sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
         
-        for speaker_id, score in scores.items():
+        # フィルタリングしながらトップ10を取得
+        filtered_scores = {}
+        count = 0
+        
+        for speaker_id, score in sorted_scores:
+            # 10個取得できたら終了
+            if count >= 10:
+                break
+                
             # JVS話者の判定
             if self.dataset_manager.is_jvs_speaker(speaker_id):
                 if not show_jvs:
@@ -714,9 +723,9 @@ class JapaneseSpeakerRecognizer:
             
             # その他の話者は常に表示
             filtered_scores[speaker_id] = score
+            count += 1
         
-        # スコア順にソートしてトップ10を返す
-        return dict(sorted(filtered_scores.items(), key=lambda x: x[1], reverse=True)[:10])
+        return filtered_scores
     
     def get_system_info(self) -> Dict[str, Any]:
         """システム情報を取得"""

@@ -197,20 +197,29 @@ def display_welcome_page():
 def display_main_content():
     """メインコンテンツの表示"""
     # タブ設定
-    tab1, tab2, tab3 = st.tabs(["🎤 話者識別", "👥 話者管理", "📊 統計情報"])
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "🎤 単一話者識別", 
+        "🎭 複数話者分析", 
+        "👥 話者管理", 
+        "📊 統計情報"
+    ])
     
     with tab1:
         display_recognition_tab()
     
     with tab2:
-        display_speaker_management_tab()
+        display_diarization_tab()
     
     with tab3:
+        display_speaker_management_tab()
+    
+    with tab4:
         display_statistics_tab()
 
 def display_recognition_tab():
-    """話者識別タブ"""
-    st.header("🎤 音声ファイルから話者を識別")
+    """単一話者識別タブ"""
+    st.header("🎤 単一話者識別")
+    st.caption("1名の話者を登録済み話者から識別します")
     
     if st.session_state.speakers_enrolled == 0:
         st.warning("⚠️ 登録された話者がいません。enrollフォルダに音声ファイルを配置してください。")
@@ -601,6 +610,222 @@ def display_statistics_tab():
         st.success("🍎 Apple Silicon GPU加速が有効です")
     else:
         st.info("💻 CPU処理で動作中です")
+
+def display_diarization_tab():
+    """複数話者分析タブ"""
+    st.header("🎭 複数話者分析")
+    st.caption("複数話者の音声から時系列での話者認識を行います")
+    
+    # 初期化確認
+    if 'multi_recognizer' not in st.session_state:
+        st.session_state.multi_recognizer = None
+        st.session_state.diarization_initialized = False
+    
+    # 初期化ボタン
+    if not st.session_state.diarization_initialized:
+        if st.button("🚀 複数話者分析システムを初期化", type="primary"):
+            initialize_diarization_system()
+        
+        st.info("""
+        💡 **複数話者分析について**
+        
+        このタブでは、複数の話者が同時に話している音声を分析し、以下を行います：
+        
+        📊 **ダイアライゼーション**: 「いつ誰が話しているか」を検出
+        🎯 **話者識別**: 各時間帯の話者を登録済み話者から特定
+        
+        **必要な準備**:
+        - Hugging Face Token が `.env` ファイルに設定済み
+        - pyannote.audio の利用規約に同意済み
+        """)
+        return
+    
+    # ファイルアップロード
+    uploaded_file = st.file_uploader(
+        "複数話者の音声ファイルをアップロード",
+        type=['wav', 'mp3', 'flac', 'm4a', 'ogg'],
+        help="2名以上の話者が含まれる音声ファイル"
+    )
+    
+    if uploaded_file:
+        # 設定
+        col1, col2 = st.columns(2)
+        with col1:
+            min_speakers = st.number_input("最小話者数", 1, 10, 1, help="音声に含まれる最小話者数")
+        with col2:
+            max_speakers = st.number_input("最大話者数", 1, 10, 5, help="音声に含まれる最大話者数")
+        
+        # 音声情報表示
+        st.subheader("📄 ファイル情報")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write(f"**ファイル名**: {uploaded_file.name}")
+            st.write(f"**ファイルサイズ**: {uploaded_file.size / 1024:.1f} KB")
+        
+        with col2:
+            # 音声プレーヤー
+            st.audio(uploaded_file.getvalue())
+        
+        # 分析実行
+        if st.button("🎭 複数話者分析開始", type="primary"):
+            perform_multi_speaker_analysis(uploaded_file, min_speakers, max_speakers)
+
+def initialize_diarization_system():
+    """複数話者分析システム初期化"""
+    with st.spinner("複数話者分析システムを初期化中..."):
+        try:
+            # 進捗表示
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            status_text.text("モジュールを読み込み中...")
+            progress_bar.progress(25)
+            
+            from speaker_diarization import MultiSpeakerRecognizer
+            
+            status_text.text("ダイアライゼーションモデルを初期化中...")
+            progress_bar.progress(50)
+            
+            recognizer = MultiSpeakerRecognizer()
+            
+            status_text.text("話者認識システムを統合中...")
+            progress_bar.progress(75)
+            
+            if recognizer.initialize():
+                st.session_state.multi_recognizer = recognizer
+                st.session_state.diarization_initialized = True
+                
+                progress_bar.progress(100)
+                status_text.text("初期化完了！")
+                
+                st.success("✅ 複数話者分析システム初期化完了")
+                time.sleep(1)
+                st.rerun()
+            else:
+                st.error("❌ 初期化に失敗しました。ログを確認してください。")
+                
+        except Exception as e:
+            st.error(f"❌ 初期化エラー: {e}")
+            st.info("💡 Hugging Face Token の設定や pyannote.audio の利用規約同意を確認してください")
+
+def perform_multi_speaker_analysis(uploaded_file, min_speakers, max_speakers):
+    """複数話者分析実行"""
+    with st.spinner("複数話者分析中..."):
+        # 一時ファイル保存
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+            tmp.write(uploaded_file.getvalue())
+            tmp_path = tmp.name
+        
+        try:
+            # 進捗表示
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            status_text.text("ダイアライゼーション実行中...")
+            progress_bar.progress(30)
+            
+            # 分析実行
+            result = st.session_state.multi_recognizer.process_audio(
+                tmp_path, min_speakers, max_speakers
+            )
+            
+            status_text.text("話者認識実行中...")
+            progress_bar.progress(70)
+            
+            progress_bar.progress(100)
+            status_text.text("分析完了！")
+            
+            # 結果表示
+            display_multi_speaker_result(result)
+            
+        except Exception as e:
+            st.error(f"❌ 分析エラー: {e}")
+        finally:
+            # 一時ファイル削除
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+def display_multi_speaker_result(result):
+    """複数話者分析結果表示"""
+    st.subheader("🎯 分析結果")
+    
+    # サマリー
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("検出話者数", result.total_speakers)
+    with col2:
+        st.metric("総時間", f"{result.total_duration:.1f}秒")
+    with col3:
+        st.metric("セグメント数", len(result.segments))
+    
+    # セグメント詳細
+    if result.segments:
+        st.subheader("📋 時系列セグメント")
+        
+        for i, segment in enumerate(result.segments):
+            # 認識成功のセグメントは緑、失敗は赤で表示
+            if segment['recognized_speaker'] != "未認識":
+                status_color = "🟢"
+                confidence_text = f" (信頼度: {segment['confidence']:.3f})"
+            else:
+                status_color = "🔴"
+                confidence_text = ""
+            
+            with st.expander(
+                f"{status_color} セグメント {segment['segment_id']}: "
+                f"{segment['start_time']:.1f}s - {segment['end_time']:.1f}s "
+                f"→ {segment['recognized_speaker']}{confidence_text}"
+            ):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write(f"**開始時間**: {segment['start_time']:.1f}秒")
+                    st.write(f"**終了時間**: {segment['end_time']:.1f}秒")
+                    st.write(f"**時間長**: {segment['duration']:.1f}秒")
+                with col2:
+                    st.write(f"**ダイアライゼーションラベル**: {segment['diarization_label']}")
+                    st.write(f"**認識話者**: {segment['recognized_speaker']}")
+                    if segment['confidence'] > 0:
+                        st.write(f"**信頼度**: {segment['confidence']:.3f}")
+        
+        # 話者別サマリー
+        st.subheader("👥 話者別サマリー")
+        speaker_summary = {}
+        for segment in result.segments:
+            speaker = segment['recognized_speaker']
+            if speaker not in speaker_summary:
+                speaker_summary[speaker] = {
+                    'segments': 0,
+                    'total_time': 0.0,
+                    'avg_confidence': 0.0
+                }
+            speaker_summary[speaker]['segments'] += 1
+            speaker_summary[speaker]['total_time'] += segment['duration']
+            if segment['confidence'] > 0:
+                speaker_summary[speaker]['avg_confidence'] += segment['confidence']
+        
+        # 平均信頼度計算
+        for speaker in speaker_summary:
+            if speaker_summary[speaker]['segments'] > 0:
+                speaker_summary[speaker]['avg_confidence'] /= speaker_summary[speaker]['segments']
+        
+        # 表形式で表示
+        summary_data = []
+        for speaker, data in speaker_summary.items():
+            summary_data.append({
+                '話者': speaker,
+                'セグメント数': data['segments'],
+                '合計時間': f"{data['total_time']:.1f}秒",
+                '平均信頼度': f"{data['avg_confidence']:.3f}" if data['avg_confidence'] > 0 else "N/A"
+            })
+        
+        if summary_data:
+            import pandas as pd
+            df = pd.DataFrame(summary_data)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+    
+    else:
+        st.warning("⚠️ セグメントが検出されませんでした。音声ファイルや設定を確認してください。")
 
 if __name__ == "__main__":
     main()

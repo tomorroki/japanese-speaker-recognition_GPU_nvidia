@@ -701,6 +701,98 @@ class JapaneseSpeakerRecognizer:
             self.logger.error(f"話者認識に失敗: {e}")
             return None
     
+    def recognize_segment(self, audio_segment: np.ndarray) -> Optional[RecognitionResult]:
+        """
+        前処理済みセグメントの認識
+        speaker_diarization.pyから使用される
+        
+        Args:
+            audio_segment: 前処理済み音声セグメント（16kHz, 正規化済み）
+            
+        Returns:
+            認識結果、失敗時はNone
+        """
+        if self.model is None:
+            self.logger.error("モデルが初期化されていません")
+            return None
+        
+        if not self.speaker_embeddings:
+            self.logger.error("話者データベースが空です")
+            return None
+        
+        try:
+            # セグメントをテンソルに変換
+            audio_tensor = torch.FloatTensor(audio_segment).to(self.device)
+            
+            # 埋め込み抽出
+            query_embedding = self.extract_embedding(audio_tensor)
+            if query_embedding is None:
+                return None
+            
+            # 各話者との類似度計算（背景話者は除外）
+            scores = {}
+            total_speakers = len(self.speaker_embeddings)
+            excluded_count = 0
+            
+            for speaker_id, speaker_embedding in self.speaker_embeddings.items():
+                # 背景話者（JVS・Common Voice）は候補から除外
+                if self.background_loader.should_exclude_speaker(speaker_id):
+                    excluded_count += 1
+                    continue
+                    
+                similarity = cosine_similarity(
+                    query_embedding.reshape(1, -1),
+                    speaker_embedding.reshape(1, -1)
+                )[0, 0]
+                scores[speaker_id] = float(similarity)
+            
+            if not scores:
+                self.logger.error("識別可能な話者がいません（全て背景話者として除外されました）")
+                return None
+            
+            # 最高スコアの話者を特定
+            best_speaker = max(scores, key=scores.get)
+            best_score = scores[best_speaker]
+            
+            # AS-Norm（スコア正規化）
+            normalized_score = None
+            if self.config["recognition"]["use_score_normalization"] and len(self.background_embeddings) > 0:
+                try:
+                    bg_similarities = cosine_similarity(
+                        query_embedding.reshape(1, -1),
+                        self.background_embeddings
+                    )[0]
+                    
+                    bg_mean = np.mean(bg_similarities)
+                    bg_std = np.std(bg_similarities)
+                    
+                    if bg_std > 0:
+                        normalized_score = (best_score - bg_mean) / bg_std
+                    else:
+                        normalized_score = best_score
+                        
+                except Exception as e:
+                    self.logger.warning(f"スコア正規化に失敗: {e}")
+                    normalized_score = best_score
+            
+            # 信頼度の計算
+            confidence = normalized_score if normalized_score is not None else best_score
+            
+            # 結果構築
+            result = RecognitionResult(
+                speaker_id=best_speaker,
+                confidence=confidence,
+                raw_score=best_score,
+                normalized_score=normalized_score,
+                all_scores=scores
+            )
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"セグメント認識エラー: {e}")
+            return None
+    
     def filter_scores_for_display(self, scores: Dict[str, float], show_jvs: bool = True, show_cv: bool = False) -> Dict[str, float]:
         """
         表示用にスコアをフィルタリング

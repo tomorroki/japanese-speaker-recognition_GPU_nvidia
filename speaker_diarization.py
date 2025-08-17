@@ -258,7 +258,8 @@ class MultiSpeakerRecognizer:
                         'diarization_label': segment.speaker_label,
                         'recognized_speaker': recognition.speaker_id if recognition else "未認識",
                         'confidence': recognition.confidence if recognition else 0.0,
-                        'raw_score': recognition.raw_score if recognition else 0.0
+                        'raw_score': recognition.raw_score if recognition else 0.0,
+                        'all_scores': recognition.all_scores if recognition else {}
                     })
                     
                 except Exception as e:

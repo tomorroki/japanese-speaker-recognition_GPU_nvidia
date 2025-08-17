@@ -864,6 +864,10 @@ def display_multi_speaker_result(result, show_jvs=True, show_cv=False):
                     st.write(f"**認識話者**: {segment['recognized_speaker']}")
                     if segment['confidence'] > 0:
                         st.write(f"**信頼度**: {segment['confidence']:.3f}")
+                
+                # トップ5話者スコア表示
+                if 'all_scores' in segment and segment['all_scores']:
+                    display_segment_top5_scores(segment, show_jvs, show_cv)
         
         # 📊 視覚化セクション
         st.subheader("📊 視覚化")
@@ -1076,6 +1080,63 @@ def display_speaker_statistics_table(speaker_stats, speaker_colors, segments):
                 st.write(f"{stats['avg_confidence']:.3f}")
             else:
                 st.write("N/A")
+
+def display_segment_top5_scores(segment, show_jvs=True, show_cv=False):
+    """セグメントのトップ5話者スコア表示"""
+    all_scores = segment['all_scores']
+    
+    if not all_scores:
+        return
+    
+    # フィルタリング適用
+    filtered_scores = {}
+    for speaker, score in all_scores.items():
+        # JVS話者のチェック
+        if speaker.startswith('jvs') and not show_jvs:
+            continue
+        
+        # Common Voice話者のチェック  
+        if (speaker.startswith('cv_') or speaker.startswith('commonvoice_')) and not show_cv:
+            continue
+        
+        filtered_scores[speaker] = score
+    
+    if not filtered_scores:
+        return
+    
+    # トップ5を取得
+    sorted_scores = sorted(filtered_scores.items(), key=lambda x: x[1], reverse=True)
+    top5_scores = sorted_scores[:5]
+    
+    st.divider()
+    st.write("**🏆 トップ5話者スコア**")
+    
+    # フィルタリング情報
+    filter_info = []
+    if not show_jvs:
+        filter_info.append("JVS話者を除外")
+    if not show_cv:
+        filter_info.append("Common Voice話者を除外")
+    
+    if filter_info:
+        st.caption(f"表示設定: {', '.join(filter_info)}")
+    
+    # スコア表示
+    for i, (speaker, score) in enumerate(top5_scores):
+        rank = i + 1
+        
+        # 1位は太字、認識された話者は背景色付き
+        if speaker == segment['recognized_speaker']:
+            st.markdown(f"**{rank}. 🥇 {speaker}**: `{score:.3f}` ← **認識結果**")
+        elif rank == 1:
+            st.markdown(f"**{rank}. {speaker}**: **`{score:.3f}`**")
+        else:
+            medal = "🥈" if rank == 2 else "🥉" if rank == 3 else f"{rank}."
+            st.write(f"{medal} {speaker}: `{score:.3f}`")
+    
+    # 表示された結果数を表示
+    if len(filtered_scores) > 5:
+        st.caption(f"他 {len(filtered_scores) - 5} 名の候補")
 
 if __name__ == "__main__":
     main()

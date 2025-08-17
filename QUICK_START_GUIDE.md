@@ -1,116 +1,241 @@
-# 🚀 クイックスタートガイド - 5分で始める話者認識
+# 🚀 クイックスタートガイド
+
+日本語話者認識システムを最短で動作させるためのガイドです。
 
 ## 🎯 このガイドの目的
 
-**5分で話者認識システムを動かす**ための最短手順です。詳細は他のガイドで説明します。
+**5分で話者認識システムを動かす**ための最短手順です。単一話者識別と複数話者分析の両方を体験できます。
 
 ## ⏱️ 所要時間
-- **準備**: 2分
-- **動作確認**: 3分
-- **合計**: 5分
+- **環境準備**: 3分
+- **単一話者識別**: 2分
+- **複数話者分析**: 3分
+- **合計**: 8分
 
 ## 📋 事前に必要なもの
 
 - ✅ Python 3.8以上
 - ✅ インターネット接続
 - ✅ 識別したい人の音声ファイル（2〜3個）
+- ✅ 複数話者の音声ファイル（オプション）
 
-## 🏃‍♂️ 5分クイックスタート
+## 🏃‍♂️ クイックスタート
 
-### Step 1: ライブラリインストール（1分）
+### Step 1: 依存関係インストール（2分）
 
 ```bash
 # プロジェクトフォルダに移動
-cd C:\Users\uenot\japanese-speaker-recognition
+cd japanese-speaker-recognition_GPU_nvidia
 
-#### GPU版PyTorch（CUDA 12.6）のインストール
-
-```bash
-# 1. PyTorch（GPU版）をインストール
+# GPU版PyTorch（CUDA 12.6）のインストール
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
 
-# 2. 残りのライブラリをインストール  
+# 残りのライブラリをインストール
 pip install -r requirements.txt
 ```
 
-
-### Step 2: 話者データ準備（1分）
-
-#### フォルダ作成
-```bash
-mkdir enroll\テスト話者
-```
-
-#### 音声ファイル配置
-あなたの音声ファイル（WAV, MP3など）を `enroll\テスト話者\` にコピー
-
-```
-enroll\
-└── テスト話者\
-    ├── 音声1.wav
-    ├── 音声2.wav
-    └── 音声3.wav
-```
-
-### Step 4: アプリ起動（30秒）
+### Step 2: 環境設定（30秒）
 
 ```bash
- streamlit run app.py          
+# .envファイルにHugging Face Tokenを設定（複数話者分析用）
+echo "HF_TOKEN=your_huggingface_token_here" > .env
 ```
 
-ブラウザが自動で開く（開かない場合は http://localhost:8501 にアクセス）
+**HF_TOKEN取得**:
+1. [Hugging Face](https://huggingface.co/settings/tokens)でトークン作成
+2. [pyannote/speaker-diarization](https://huggingface.co/pyannote/speaker-diarization)で利用規約同意
 
-### Step 5: 初期化（1分）
+### Step 3: 話者データ準備（1分）
+
+```bash
+# フォルダ作成
+mkdir -p enroll/test_speaker
+```
+
+あなたの音声ファイル（WAV, MP3など）を `enroll/test_speaker/` にコピー：
+
+```
+enroll/
+└── test_speaker/
+    ├── audio1.wav
+    ├── audio2.wav
+    └── audio3.wav
+```
+
+### Step 4: ダミー背景データ作成（30秒）
+
+```bash
+python create_dummy_cv_embeddings.py
+```
+
+### Step 5: アプリ起動（30秒）
+
+```bash
+streamlit run app.py
+```
+
+ブラウザで http://localhost:8501 にアクセス
+
+## 🎤 単一話者識別を試す（2分）
+
+### Step 1: システム初期化
 
 1. **サイドバー**の「🚀 モデル初期化」をクリック
-2. **1分程度待つ**（初回のみモデルダウンロード）
-3. 「モデル初期化完了」と表示されれば成功
+2. **1-2分待つ**（初回のみモデルダウンロード）
+3. 「システム初期化完了」表示を確認
 
-### Step 6: 話者識別テスト（1分）
+### Step 2: 話者識別テスト
 
-1. **「🎤 話者識別」タブ**をクリック
+1. **「🎤 単一話者識別」タブ**をクリック
 2. **音声ファイルをアップロード**（ドラッグ&ドロップ）
 3. **「🔍 話者識別開始」**をクリック
 4. **結果確認**
 
-## 🎉 成功例
-
-### 結果画面
+#### 成功例
 ```
 🎯 識別結果
 
-👤 話者: テスト話者
+👤 識別された話者: test_speaker
 📊 信頼度: 0.892
 📈 生スコア: 0.847
 
-📋 全話者スコア詳細:
-1. テスト話者    ████████████ 0.892
+📋 トップ10話者スコア:
+1. test_speaker    ████████████ 0.892
 ```
 
-## 🔧 うまくいかない場合
+## 🎭 複数話者分析を試す（3分）
 
-### エラー1: モジュールが見つからない
+### Step 1: システム初期化
+
+1. **「🎭 複数話者分析」タブ**をクリック
+2. **「🚀 複数話者分析システムを初期化」**をクリック
+3. **初期化完了を待つ**（1-2分）
+
+### Step 2: 分析設定
+
+1. **話者数設定**を調整（最小: 1, 最大: 5）
+2. **表示設定**を調整：
+   - 🗾 JVS話者を結果に表示（お好みで）
+   - 🌐 Common Voice話者を結果に表示（お好みで）
+
+### Step 3: 分析実行
+
+1. **複数話者音声をアップロード**（2名以上が話している音声）
+2. **「🎭 複数話者分析開始」**をクリック
+3. **結果確認**
+
+#### 成功例
+```
+🎯 分析結果
+
+検出話者数: 2    総時間: 15.3秒    セグメント数: 6
+
+📊 視覚化
+⏰ ダイアライゼーション: pyannote.audioの分離結果
+👥 話者別タイムライン: 認識結果 + 統計
+
+📋 時系列セグメント:
+🟢 セグメント 1: 0.0s - 3.2s → test_speaker (0.856)
+🟢 セグメント 2: 3.2s - 6.1s → unknown_speaker (0.432)
+...
+
+👥 話者別統計:
+test_speaker: 3セグメント, 8.2秒 (54%), 信頼度0.823
+unknown_speaker: 3セグメント, 7.1秒 (46%), 信頼度0.398
+```
+
+## 🔧 トラブルシューティング
+
+### GPU認識されない
 ```bash
-# 解決法
-pip install -r requirements.txt
+# GPU確認
+python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}')"
+
+# CPU版に変更
+pip install torch torchvision torchaudio
 ```
 
-### エラー2: 話者が表示されない
+### メモリ不足エラー
+`config.json`を編集：
+```json
+{
+  "recognition": {
+    "background_speakers_count": 50
+  },
+  "diarization": {
+    "max_speakers": 3
+  }
+}
+```
+
+### Hugging Face認証エラー
 ```bash
-# 音声ファイルの場所確認
-dir enroll\テスト話者
+# Tokenが設定されているか確認
+cat .env
+
+# 利用規約同意を確認
+# https://huggingface.co/pyannote/speaker-diarization
 ```
 
-### エラー3: 識別結果が出ない
-- 音声ファイルが2秒以上30秒以下か確認
-- WAV, MP3, FLAC, M4A, OGG形式か確認
+### 話者が見つからない
+1. `enroll/`フォルダに話者ディレクトリがあるか確認
+2. 各話者フォルダに音声ファイルがあるか確認
+3. 「モデル初期化」を再実行
+
+### セグメントが検出されない
+1. 音声が2秒以上あるか確認
+2. 複数の話者が明確に分離されているか確認
+3. 話者数設定を調整
+
+## 📊 動作確認チェックリスト
+
+### ✅ 単一話者識別
+- [ ] アプリが起動する
+- [ ] モデル初期化が成功する
+- [ ] 話者が登録される（1名以上）
+- [ ] 音声ファイルがアップロードできる
+- [ ] 識別結果が表示される
+- [ ] トップ10スコアが表示される
+
+### ✅ 複数話者分析
+- [ ] HF_TOKENが設定されている
+- [ ] 複数話者分析システムが初期化される
+- [ ] ダイアライゼーションが実行される
+- [ ] セグメントが検出される
+- [ ] タイムラインチャートが表示される
+- [ ] 話者別統計が表示される
+- [ ] トップ5スコアが表示される
+
+## 🎯 体験できる機能
+
+### 🎤 単一話者識別
+- **高精度認識**: ECAPA-TDNNによる話者埋め込み
+- **トップ10表示**: 全候補話者のスコアランキング
+- **AS-Norm**: 背景モデルによるスコア正規化
+- **フィルタリング**: JVS/Common Voice話者の表示制御
+
+### 🎭 複数話者分析
+- **話者ダイアライゼーション**: pyannote.audioによる時系列分析
+- **インタラクティブ可視化**: Plotlyタイムラインチャート
+- **詳細統計**: 話者別の発話時間・セグメント数・信頼度
+- **トップ5表示**: 各セグメントの認識候補ランキング
 
 ## 📚 次のステップ
 
 ### 🎯 より高精度にしたい場合
 
-1. **JVS埋め込み作成** → [背景埋め込み作成ガイド（README.md）](README.md#-背景埋め込み作成ガイド)
-2. **Common Voice埋め込み作成** → [README.md](README.md#-common-voice埋め込み作成)
+1. **実際の背景データ作成**
+   ```bash
+   # JVS埋め込み作成
+   python prep_jvs_embeddings.py C:\\Downloads\\jvs_ver1
+   
+   # Common Voice埋め込み作成
+   python prep_common_voice_embeddings.py --max-samples 5000
+   ```
+
+2. **話者データの充実**
+   - 1話者につき3-5個の音声サンプル
+   - 異なる内容・録音環境の音声を使用
 
 ### 👥 複数話者を管理したい場合
 
@@ -118,43 +243,40 @@ dir enroll\テスト話者
 
 ### ⚙️ 設定をカスタマイズしたい場合
 
-**README.md** → [設定ファイル説明](README.md#-設定ファイル-configjson)
+**詳細設定** → [README.md](README.md#-設定ファイル-configjson)
 
-## 🎯 このクイックスタートで体験できること
+### 🔍 トラブル解決
 
-- ✅ 話者識別の基本機能
-- ✅ Webアプリの操作感
-- ✅ 識別精度の目安
-- ✅ システムの動作確認
+**FAQ** → [FAQ.md](FAQ.md)
 
 ## 💡 重要な注意点
 
 ### ダミーデータについて
 ```
-⚠️ 今回使用した background_common_voice_ja_ecapa.npz は
+⚠️ create_dummy_cv_embeddings.pyで作成したファイルは
    ダミーデータです。
 
-✅ 実際のプロジェクトでは本物のデータを使用することを
+✅ 本格運用では実際のデータセットから作成することを
    強く推奨します。
 ```
 
 ### 本格運用への移行
 ```bash
 # ダミーファイルを削除
-del background_common_voice_ja_ecapa.npz
+rm background_common_voice_ja_ecapa.npz
 
-# 本物のCommon Voice埋め込み作成
+# 実際のCommon Voice埋め込み作成
 python prep_common_voice_embeddings.py
 
 # JVS埋め込み作成（オプション）
-python prep_jvs_embeddings.py C:\path\to\jvs
+python prep_jvs_embeddings.py C:\\path\\to\\jvs
 ```
 
 ## 🎊 おめでとうございます！
 
-**5分で話者認識システムが動きました！**
+**日本語話者認識システムが動きました！**
 
-これで基本的な動作が確認できたので、次は：
+これで基本的な機能を体験できたので、次は：
 - より多くの話者を追加
 - 高精度な背景モデルの作成
 - 実際の業務での活用
@@ -167,4 +289,5 @@ python prep_jvs_embeddings.py C:\path\to\jvs
 
 1. **README.md** - 詳細な機能説明
 2. **SPEAKER_MANAGEMENT_GUIDE.md** - 話者管理の詳細
-3. **GitHub Issues** - 問題報告
+3. **FAQ.md** - よくある質問
+4. **GitHub Issues** - 問題報告

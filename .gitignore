@@ -111,22 +111,90 @@ dmypy.json
 ehthumbs.db
 Thumbs.db
 
-# Project specific
+# === Speaker Recognition System Specific ===
+
+# Authentication and secrets
+.env
+*.token
+
 # Large audio datasets (users download separately)
 background_datasets/
 jvs_ver1/
+jvs/
 common_voice_*/
+downloads/
 
-# User-created speaker data (examples only)
+# User speaker enrollment data (privacy protection)
 enroll/*/
+!enroll/README.md
+!enroll/.gitkeep
 
-# Temporary files
-*.tmp
-*.log
+# Generated embedding files (can be recreated)
+enrolled_speakers_embeddings.npz
+*.npz.bak
+*.embedding
 
-# Model cache (downloaded automatically)
+# Keep background embeddings (pre-computed, valuable)
+!background_jvs_ecapa.npz
+!background_common_voice_ja_ecapa.npz
+
+# Model cache and downloaded models
 .cache/
 models/
+torch_cache/
+transformers_cache/
+speechbrain_cache/
+
+# Hugging Face cache
+.huggingface/
+transformers/
+
+# pyannote.audio cache
+.pyannote/
 
 # Streamlit
 .streamlit/
+.streamlit/secrets.toml
+
+# Audio processing temporary files
+*.tmp
+*.temp
+temp_audio/
+uploads/
+
+# Logs
+*.log
+logs/
+.logs/
+
+# Performance profiling
+*.prof
+profile_*/
+
+# Development and testing
+test_audio/
+debug/
+experiments/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# System-specific audio drivers/configs
+pulse/
+alsa/
+
+# Large temporary audio files
+*.wav.tmp
+*.mp3.tmp
+*.flac.tmp
+
+# Database files (if any)
+*.db
+*.sqlite
+*.sqlite3
+
+# Configuration overrides (keep template versions only)
+config.local.json
+settings.local.json

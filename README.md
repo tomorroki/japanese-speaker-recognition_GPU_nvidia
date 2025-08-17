@@ -1,62 +1,77 @@
 # 日本語話者認識システム
 
-SpeechBrain + ECAPA-TDNNを使用した高精度な日本語話者識別Webアプリケーション
+SpeechBrain + ECAPA-TDNNとpyannote.audioを使用した高精度な日本語話者識別・分析Webアプリケーション
 
 ## 🎯 概要
 
-このシステムは、**SpeechBrain**の**ECAPA-TDNN**モデルを使用して、音声ファイルから話者を高精度で識別するWebアプリケーションです。JVSとCommon Voice日本語データセットの話者を背景モデルとして活用し、AS-Norm（Adaptive Score Normalization）により識別精度を向上させています。
+このシステムは、**SpeechBrain**の**ECAPA-TDNN**モデルと**pyannote.audio**を組み合わせて、音声ファイルから話者を高精度で識別・分析するWebアプリケーションです。単一話者の識別に加え、複数話者が含まれる音声の時系列分析にも対応しています。
 
 ## ✨ 主な機能
 
-- **🎤 高精度話者識別**: ECAPA-TDNNによる最先端の話者埋め込み技術
-- **🗂️ 背景話者除外**: JVS・Common Voice話者の自動除外機能
-- **📊 AS-Norm対応**: 背景モデルを使用したZ-score正規化でスコア改善
+### 🎤 単一話者識別
+- **高精度認識**: ECAPA-TDNNによる最先端の話者埋め込み技術
+- **AS-Norm対応**: 背景モデルを使用したスコア正規化で精度向上
+- **トップ10スコア表示**: 全候補話者のスコア詳細分析
+
+### 🎭 複数話者分析（NEW!）
+- **話者ダイアライゼーション**: pyannote.audioによる「いつ誰が話しているか」検出
+- **時系列話者認識**: 各時間帯の話者を自動識別
+- **インタラクティブ可視化**: タイムラインチャートとPlotlyグラフ
+- **トップ5表示**: 各セグメントの認識候補をランキング表示
+
+### 📊 可視化・分析機能
+- **ダイアライゼーションタイムライン**: pyannote.audioの分離結果
+- **話者別タイムライン**: 認識結果ベースの発話パターン
+- **話者統計**: セグメント数・発話時間・信頼度の詳細分析
+- **フィルタリング**: JVS/Common Voice話者の表示・非表示制御
+
+### 🛠️ システム機能
 - **💾 軽量配布**: 音声ファイルではなく埋め込みベクトル（.npz）のみを同梱
-- **🖥️ 直感的UI**: Streamlitによる使いやすいWebインターface
+- **🖥️ 直感的UI**: Streamlitによる使いやすいWebインターフェース
 - **⚙️ 柔軟な設定**: JSON設定ファイルによるパラメータ調整
-- **📈 詳細分析**: 全話者スコア表示と統計情報
+- **🗂️ 背景話者除外**: JVS・Common Voice話者の自動除外機能
 
 ## 🛠️ 技術スタック
 
 - **Python 3.8+**
 - **SpeechBrain** (speechbrain/spkrec-ecapa-voxceleb)
+- **pyannote.audio** (pyannote/speaker-diarization-3.1)
 - **Streamlit** (Web UI)
 - **PyTorch** (深層学習フレームワーク)
 - **librosa, soundfile** (音声処理)
 - **scikit-learn** (機械学習)
 - **Plotly** (可視化)
-- **Hugging Face Datasets** (Common Voice ストリーミング)
+- **Hugging Face** (モデル・データセット)
 
 ## 📁 プロジェクト構造
 
 ```
-japanese-speaker-recognition/
+japanese-speaker-recognition_GPU_nvidia/
 ├── app.py                                    # Streamlit メインアプリ
-├── enhanced_speaker_recognition.py           # 核となる認識システム
-├── dataset_manager.py                        # データセット管理
-├── background_loader.py                      # 背景埋め込み管理
-├── config.json                               # 設定ファイル
-├── requirements.txt                          # 依存関係
-├── README.md                                 # このファイル
-├── prep_jvs_embeddings.py                    # JVS埋め込み作成スクリプト
-├── prep_common_voice_embeddings.py           # Common Voice埋め込み作成スクリプト
-├── create_embeddings.py                      # 埋め込み作成統合スクリプト
-├── create_dummy_cv_embeddings.py             # ダミー埋め込み作成（テスト用）
-├── background_jvs_ecapa.npz                  # JVS背景埋め込み（作成後）
-├── background_common_voice_ja_ecapa.npz      # Common Voice背景埋め込み（作成後）
-├── enroll/                                   # ユーザー登録話者（識別対象）
-│   ├── yamada_taro/                          # 話者1のディレクトリ
+├── enhanced_speaker_recognition.py           # 単一話者認識システム
+├── speaker_diarization.py                   # 複数話者分析システム（NEW）
+├── segment_processor.py                     # セグメント処理（NEW）
+├── dataset_manager.py                       # データセット管理
+├── background_loader.py                     # 背景埋め込み管理
+├── config.json                              # 設定ファイル
+├── .env                                     # 環境変数（HF Token）
+├── requirements.txt                         # 依存関係
+├── README.md                                # このファイル
+├── prep_jvs_embeddings.py                   # JVS埋め込み作成
+├── prep_common_voice_embeddings.py          # Common Voice埋め込み作成
+├── create_embeddings.py                     # 埋め込み作成統合
+├── background_jvs_ecapa.npz                 # JVS背景埋め込み
+├── background_common_voice_ja_ecapa.npz     # Common Voice背景埋め込み
+├── enrolled_speakers_embeddings.npz         # 登録話者キャッシュ
+├── enroll/                                  # ユーザー登録話者
+│   ├── speaker1/
 │   │   ├── sample1.wav
-│   │   ├── sample2.wav
-│   │   └── ...
-│   ├── sato_hanako/                          # 話者2のディレクトリ
-│   └── tanaka_jiro/                          # 話者3のディレクトリ
-├── background_datasets/                      # 背景モデル用（識別対象外）
-│   ├── jvs/                                 # JVSデータセット（音声ファイル）
-│   └── common_voice_ja/                     # Common Voiceデータセット（音声ファイル）
-└── background_embeddings/                    # 埋め込みファイル配置用（オプション）
-    ├── background_jvs_ecapa.npz
-    └── background_common_voice_ja_ecapa.npz
+│   │   └── sample2.wav
+│   └── speaker2/
+└── docs/                                    # ドキュメント
+    ├── QUICK_START_GUIDE.md
+    ├── SPEAKER_MANAGEMENT_GUIDE.md
+    └── FAQ.md
 ```
 
 ## 🚀 クイックスタート
@@ -73,10 +88,18 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 pip install -r requirements.txt
 ```
 
+### 2. Hugging Face認証設定（複数話者分析用）
 
-### 2. 話者登録用データの準備
+```bash
+# .envファイルにHugging Face Tokenを設定
+echo "HF_TOKEN=your_huggingface_token_here" > .env
+```
 
-識別したい話者の音声ファイルを`enroll/`フォルダに配置：
+**Hugging Face Token取得方法**:
+1. https://huggingface.co/settings/tokens でトークン作成
+2. https://huggingface.co/pyannote/speaker-diarization で利用規約同意
+
+### 3. 話者登録用データの準備
 
 ```
 enroll/
@@ -91,7 +114,7 @@ enroll/
     └── audio1.wav
 ```
 
-### 3. 背景埋め込みの作成
+### 4. 背景埋め込みの作成
 
 #### 方法A: ダミーファイルで動作確認（簡単）
 
@@ -103,19 +126,64 @@ python create_dummy_cv_embeddings.py
 
 詳細は[背景埋め込み作成ガイド](#-背景埋め込み作成ガイド)を参照
 
-### 4. アプリケーション起動
+### 5. アプリケーション起動
 
-仮想環境の起動
-.venv\Scripts\activate
+```bash
+# 仮想環境の起動（Windows）
+.venv\\Scripts\\activate
 
+# アプリ起動
 streamlit run app.py
 ```
 
 ブラウザで http://localhost:8501 にアクセス
 
-## 🎯 背景埋め込み作成ガイド
+## 📖 使用方法
 
-背景埋め込みを作成することで、AS-Norm（Adaptive Score Normalization）による高精度な話者識別が可能になります。
+### 🎤 単一話者識別
+
+1. **システム初期化**
+   - サイドバーの「🚀 モデル初期化」をクリック
+   - モデル読み込みと話者データベース構築を待機
+
+2. **話者識別**
+   - 「🎤 単一話者識別」タブを選択
+   - 音声ファイルをアップロード（WAV, MP3, FLAC, M4A, OGG対応）
+   - 「🔍 話者識別開始」をクリック
+   - 結果とトップ10スコア詳細を確認
+
+### 🎭 複数話者分析
+
+1. **システム初期化**
+   - 「🎭 複数話者分析」タブを選択
+   - 「🚀 複数話者分析システムを初期化」をクリック
+
+2. **分析設定**
+   - 最小・最大話者数を設定
+   - JVS/Common Voice話者の表示設定を調整
+
+3. **分析実行**
+   - 複数話者音声をアップロード
+   - 「🎭 複数話者分析開始」をクリック
+
+4. **結果確認**
+   - **📊 視覚化**: タイムラインチャートで話者切り替えを確認
+   - **📋 時系列セグメント**: 各セグメントの詳細とトップ5スコア
+   - **👥 話者別統計**: 発話時間・セグメント数・信頼度の分析
+
+### 📊 可視化機能
+
+#### ⏰ ダイアライゼーションタブ
+- pyannote.audioの話者分離結果をタイムライン表示
+- SPEAKER_00, SPEAKER_01形式のラベル
+- ホバーで詳細情報（時間・認識話者・信頼度）
+
+#### 👥 話者別タイムラインタブ  
+- 認識話者ベースのタイムライン表示
+- 実際の話者名（田中太郎、佐藤花子など）
+- 話者別統計テーブル（発話時間・セグメント数・平均信頼度）
+
+## 🎯 背景埋め込み作成ガイド
 
 ### 📋 JVS埋め込み作成
 
@@ -123,71 +191,42 @@ streamlit run app.py
 
 1. **JVS公式サイト**にアクセス: https://sites.google.com/site/shinnosuketakamichi/research-topics/jvs_corpus
 2. **Google Drive**リンクから`jvs_ver1.zip` (約2.7GB) をダウンロード
-3. 適当な場所に解凍（例：`C:\Downloads\jvs_ver1\`）
+3. 適当な場所に解凍（例：`C:\\Downloads\\jvs_ver1\\`）
 
 #### ステップ2: 埋め込み作成
 
 ```bash
-# JVSのパスを指定して実行（パスは実際の解凍先に変更）
-python prep_jvs_embeddings.py C:\Downloads\jvs_ver1
+# JVSのパスを指定して実行
+python prep_jvs_embeddings.py C:\\Downloads\\jvs_ver1
 
 # オプション: 話者あたりのファイル数を調整
-python prep_jvs_embeddings.py C:\Downloads\jvs_ver1 --per-speaker 30
+python prep_jvs_embeddings.py C:\\Downloads\\jvs_ver1 --per-speaker 30
 ```
 
 **処理時間**: CPU 30分〜1時間、GPU 10分〜20分  
 **作成ファイル**: `background_jvs_ecapa.npz` (約3.8MB)
 
-#### ステップ3: 音声ファイルの削除（任意）
-
-埋め込み作成後、元の音声ファイル（2.7GB）は削除しても構いません。埋め込みファイル（3.8MB）のみでアプリは動作します。
-
 ### 🌐 Common Voice埋め込み作成
 
-#### 方法1: 認証なしで古いバージョンを使用
-
 ```bash
+# 最新版を使用（Hugging Face認証が必要）
+python prep_common_voice_embeddings.py --max-samples 5000
+
+# 認証なしで古いバージョンを使用
 python prep_common_voice_embeddings.py
 ```
-
-自動的に利用可能なバージョンにフォールバックします。
-
-#### 方法2: 最新版を使用（Hugging Face認証が必要）
-
-1. **Hugging Faceアカウント**を作成: https://huggingface.co/
-2. **Common Voiceデータセット**へのアクセス申請: https://huggingface.co/datasets/mozilla-foundation/common_voice_17_0
-3. **認証設定**:
-   ```bash
-   pip install huggingface_hub
-   huggingface-cli login
-   ```
-4. **埋め込み作成**:
-   ```bash
-   python prep_common_voice_embeddings.py --max-samples 5000
-   ```
 
 **処理時間**: 15分〜30分  
 **作成ファイル**: `background_common_voice_ja_ecapa.npz` (約19MB)
 
-#### 方法3: ダミーファイルで動作確認
-
-```bash
-python create_dummy_cv_embeddings.py
-```
-
 ### 🔧 統合スクリプト
-
-両方の埋め込みを一度に作成：
 
 ```bash
 # JVSとCommon Voice両方
-python create_embeddings.py --jvs-path C:\Downloads\jvs_ver1 --cv-max-samples 5000
+python create_embeddings.py --jvs-path C:\\Downloads\\jvs_ver1 --cv-max-samples 5000
 
 # JVSのみ
-python create_embeddings.py --jvs-path C:\Downloads\jvs_ver1 --skip-cv
-
-# Common Voiceのみ
-python create_embeddings.py --skip-jvs --cv-max-samples 3000
+python create_embeddings.py --jvs-path C:\\Downloads\\jvs_ver1 --skip-cv
 ```
 
 ## 🔧 設定ファイル (config.json)
@@ -196,133 +235,75 @@ python create_embeddings.py --skip-jvs --cv-max-samples 3000
 
 ```json
 {
-  \"recognition\": {
-    \"threshold\": 0.25,                    // 識別しきい値
-    \"use_score_normalization\": true,      // AS-Norm の有効/無効
-    \"background_speakers_count\": 100      // 背景話者サンプル数
+  "recognition": {
+    "threshold": 0.25,
+    "use_score_normalization": true,
+    "background_speakers_count": 100
   },
-  \"audio\": {
-    \"sample_rate\": 16000,                 // サンプリングレート
-    \"min_duration\": 2.0,                  // 最小音声長（秒）
-    \"max_duration\": 30.0,                 // 最大音声長（秒）
-    \"normalize\": true                     // 音声正規化
+  "diarization": {
+    "model": "pyannote/speaker-diarization-3.1",
+    "min_speakers": 1,
+    "max_speakers": 10,
+    "min_segment_duration": 0.5
   },
-  \"datasets\": {
-    \"exclude_background_speakers\": true,  // 背景話者除外機能
-    \"allow_jvs_speakers\": false,          // JVS話者を識別候補に含める
-    \"allow_common_voice_speakers\": false  // Common Voice話者を識別候補に含める
+  "segment_processing": {
+    "target_sample_rate": 16000,
+    "normalize": true
+  },
+  "datasets": {
+    "exclude_background_speakers": true,
+    "allow_jvs_speakers": true,
+    "allow_common_voice_speakers": false
+  },
+  "ui": {
+    "show_jvs_in_results": false,
+    "show_common_voice_in_results": false
   }
 }
 ```
 
-### JVS話者を識別候補に含める方法
-
-JVS話者（jvs001〜jvs100）を識別対象にしたい場合：
+### 表示設定の調整
 
 ```json
 {
-  \"datasets\": {
-    \"allow_jvs_speakers\": true,           // これをtrueに変更
-    \"allow_common_voice_speakers\": false
+  "ui": {
+    "show_jvs_in_results": true,        // JVS話者を結果に表示
+    "show_common_voice_in_results": true // Common Voice話者を結果に表示
   }
 }
 ```
 
-### 背景話者除外を完全無効化
-
-すべての話者を識別候補にしたい場合：
-
-```json
-{
-  \"datasets\": {
-    \"exclude_background_speakers\": false  // これをfalseに変更
-  }
-}
-```
-
-## 📖 使用方法
-
-### 1. システム初期化
-1. Webアプリにアクセス
-2. サイドバーの「🚀 モデル初期化」をクリック
-3. モデル読み込みと話者データベース構築を待機
-
-### 2. 話者識別
-1. 「🎤 話者識別」タブを選択
-2. 音声ファイルをアップロード（WAV, MP3, FLAC, M4A, OGG対応）
-3. 「🔍 話者識別開始」をクリック
-4. 結果とスコア詳細を確認
-
-### 3. 話者管理
-1. 「👥 話者管理」タブで登録状況を確認
-2. 除外された話者と理由を表示
-3. 音声ファイル数の統計を確認
-
-### 4. システム情報
-1. 「📊 統計情報」タブでシステム情報を確認
-2. パフォーマンス情報を表示
-
-## 🎯 重要な機能説明
-
-### 背景話者除外機能
-
-以下の話者IDは自動的に識別候補から除外されます（設定で変更可能）：
-
-- **JVS話者**: `jvs001` ~ `jvs100`
-- **Common Voice話者**: `cv_*`, `commonvoice_*` で始まるID
-
-この機能により、公開データセットの話者と実際のユーザーを明確に分離できます。除外したくない場合は`config.json`で設定変更できます。
-
-### AS-Norm（Adaptive Score Normalization）
-
-背景データセットとの類似度を使用してZ-score正規化を行い、より信頼性の高い識別スコアを提供します：
-
-```
-normalized_score = (raw_score - background_mean) / background_std
-```
-
-### 軽量配布システム
-
-- **JVS**: 音声ファイル（2.7GB）→ 埋め込み（3.8MB）に圧縮
-- **Common Voice**: ストリーミング取得 → 埋め込み（19MB）で軽量化
-- **再配布**: 音声ファイルではなく埋め込みのみを同梱（ライセンス対応）
-
-### 音声品質管理
-
-- **音声長制限**: 2秒～30秒の範囲で処理
-- **フォーマット統一**: 16kHz モノラルに自動変換
-- **正規化**: 音声レベルの自動調整
-
-## 🔧 トラブルシューティング
+## 🔍 トラブルシューティング
 
 ### よくあるエラーと解決法
 
-#### 1. Common Voice認証エラー
+#### 1. pyannote.audio認証エラー
 ```
-エラー: Dataset 'mozilla-foundation/common_voice_17_0' is a gated dataset
+エラー: Hugging Face tokenが設定されていません
 解決法:
-1. https://huggingface.co/ でアカウント作成
-2. データセットへのアクセス申請
-3. huggingface-cli login で認証
-または: python prep_common_voice_embeddings.py （古いバージョンで自動フォールバック）
+1. https://huggingface.co/settings/tokens でトークン作成
+2. https://huggingface.co/pyannote/speaker-diarization で利用規約同意
+3. .envファイルにHF_TOKEN=your_token_hereを設定
 ```
 
-#### 2. JVS埋め込み作成エラー
+#### 2. モジュール不足エラー
 ```
-エラー: No such file or directory
-解決法: python prep_jvs_embeddings.py [正しいJVSパス]
-例: python prep_jvs_embeddings.py C:\Downloads\jvs_ver1
+エラー: pyannote.audioがインストールされていません
+解決法: pip install pyannote.audio>=3.1.0
 ```
 
 #### 3. メモリ不足エラー
 ```
 エラー: CUDA out of memory
-解決法: python prep_jvs_embeddings.py [パス] --per-speaker 25
+解決法: 
+- config.jsonのbackground_speakers_countを50に削減
+- max_speakersを5に削減
 ```
 
-#### 4. 背景埋め込みが見つからない
+#### 4. セグメント認識エラー
 ```
-解決法: python create_dummy_cv_embeddings.py でダミーファイル作成
+エラー: 'JapaneseSpeakerRecognizer' object has no attribute '_compute_similarity'
+解決法: enhanced_speaker_recognition.pyが最新版か確認
 ```
 
 ### パフォーマンス最適化
@@ -331,83 +312,67 @@ normalized_score = (raw_score - background_mean) / background_std
 ```python
 import torch
 print(f"CUDA available: {torch.cuda.is_available()}")
-print(f"MPS available: {hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()}")
+print(f"Device: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'}")
 ```
 
 #### メモリ使用量の調整
 - `background_speakers_count`: 100 → 50（メモリ節約）
-- `max_samples`: 5000 → 2000（Common Voice）
-- `per_speaker`: 50 → 25（JVS）
+- `max_speakers`: 10 → 5（複数話者分析）
+- `min_segment_duration`: 0.5 → 1.0（短いセグメント除外）
 
-## 🔍 API使用例
+## 🎯 重要な機能説明
 
-システムをプログラムから使用する場合：
+### 複数話者分析の処理フロー
 
-```python
-from enhanced_speaker_recognition import JapaneseSpeakerRecognizer
+1. **ダイアライゼーション**: pyannote.audioで「いつ誰が話しているか」を検出
+2. **セグメント切り出し**: 各時間帯の音声を16kHzに前処理
+3. **話者認識**: 各セグメントを既存の登録話者から識別
+4. **結果統合**: タイムライン・統計・トップ5スコア表示
 
-# 初期化
-recognizer = JapaneseSpeakerRecognizer()
-recognizer.initialize_model()
+### フィルタリング機能
 
-# 話者データベース構築
-recognizer.build_speaker_database()
+以下の話者IDは表示設定で制御できます：
+- **JVS話者**: `jvs001` ~ `jvs100`
+- **Common Voice話者**: `cv_*`, `commonvoice_*` で始まるID
 
-# 背景モデル構築
-recognizer.build_background_model()
+### AS-Norm（Adaptive Score Normalization）
 
-# 話者識別
-result = recognizer.recognize_speaker(\"test_audio.wav\")
-
-if result:
-    print(f\"識別された話者: {result.speaker_id}\")
-    print(f\"信頼度: {result.confidence:.3f}\")
-    print(f\"生スコア: {result.raw_score:.3f}\")
 ```
+normalized_score = (raw_score - background_mean) / background_std
+```
+
+背景データセットとの類似度を使用してZ-score正規化を行い、より信頼性の高い識別スコアを提供します。
 
 ## 📊 ファイルサイズと処理時間の目安
 
-### JVS埋め込み
-- **元データ**: 2.7GB（音声ファイル）
-- **埋め込み**: 3.8MB（.npzファイル）
-- **処理時間**: CPU 30分〜1時間、GPU 10分〜20分
-- **話者数**: 100名
-- **サンプル数**: 5,000発話（デフォルト）
-
-### Common Voice埋め込み
-- **元データ**: ストリーミング（全量DL不要）
-- **埋め込み**: 19MB（.npzファイル）
-- **処理時間**: 15分〜30分
-- **サンプル数**: 5,000発話（デフォルト）
-
 ### システム要件
 - **Python**: 3.8以上
-- **メモリ**: 4GB以上推奨
+- **メモリ**: 8GB以上推奨（複数話者分析使用時）
 - **ストレージ**: 100MB（埋め込みファイル用）
-- **GPU**: オプション（CUDA/MPS対応）
+- **GPU**: オプション（CUDA/MPS対応、処理速度3-5倍向上）
 
-## 📁 ファイル管理
+### 処理時間（GPU使用時）
+- **単一話者識別**: 1-3秒
+- **複数話者分析**: 10-30秒（音声長・話者数による）
+- **ダイアライゼーション**: 5-15秒
+- **話者認識**: 5-15秒（セグメント数による）
 
-### 作成されるファイル
-```
-japanese-speaker-recognition/
-├── background_jvs_ecapa.npz              # JVS埋め込み（3.8MB）
-├── background_common_voice_ja_ecapa.npz  # Common Voice埋め込み（19MB）
-└── ...
-```
+## 📝 新機能（複数話者分析）
 
-### バックアップ推奨
-- 埋め込みファイル（.npz）は作成に時間がかかるため、バックアップ推奨
-- `config.json`の設定もバックアップ推奨
+### 主な特徴
+- **pyannote.audio 3.1**による最新の話者ダイアライゼーション
+- **2段階処理**：分離→認識で高精度分析
+- **リアルタイム可視化**：Plotlyによるインタラクティブチャート
+- **詳細分析**：各セグメントのトップ5候補表示
 
-### クリーンアップ
-```bash
-# 元の音声ファイルを削除（埋め込み作成後）
-rm -rf jvs_ver1/  # JVS音声ファイル（2.7GB）
+### 対応音声形式
+- **入力**: WAV, MP3, FLAC, M4A, OGG
+- **推奨**: 16kHz以上、2-30秒、複数話者が明確に分離されている音声
 
-# 一時ファイルを削除
-rm -rf __pycache__/
-```
+### 制限事項
+- **最大話者数**: 10名（設定で調整可能）
+- **最小セグメント長**: 0.5秒（設定で調整可能）
+- **重複発話**: 部分的対応（pyannote.audioの性能に依存）
 
 ## 📝 ライセンス
 
@@ -415,17 +380,12 @@ rm -rf __pycache__/
 
 ## 🤝 貢献
 
-プルリクエストや問題報告を歓迎します。以下の手順でご協力ください：
-
-1. このリポジトリをフォーク
-2. 機能ブランチを作成 (`git checkout -b feature/amazing-feature`)
-3. 変更をコミット (`git commit -m 'Add amazing feature'`)
-4. ブランチにプッシュ (`git push origin feature/amazing-feature`)
-5. プルリクエストを作成
+プルリクエストや問題報告を歓迎します。
 
 ## 📚 参考文献
 
 - [SpeechBrain](https://speechbrain.github.io/)
+- [pyannote.audio](https://github.com/pyannote/pyannote-audio)
 - [ECAPA-TDNN](https://arxiv.org/abs/2005.07143)
 - [JVS Dataset](https://sites.google.com/site/shinnosuketakamichi/research-topics/jvs_corpus)
 - [Common Voice](https://commonvoice.mozilla.org/)

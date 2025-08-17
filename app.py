@@ -649,11 +649,42 @@ def display_diarization_tab():
     
     if uploaded_file:
         # 設定
+        st.subheader("⚙️ 分析設定")
+        
+        # 話者数設定
         col1, col2 = st.columns(2)
         with col1:
             min_speakers = st.number_input("最小話者数", 1, 10, 1, help="音声に含まれる最小話者数")
         with col2:
             max_speakers = st.number_input("最大話者数", 1, 10, 5, help="音声に含まれる最大話者数")
+        
+        # 表示設定
+        st.write("**認識結果の表示設定**")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # セッション状態の初期化
+            if 'diarization_show_jvs' not in st.session_state:
+                st.session_state.diarization_show_jvs = False
+            
+            show_jvs = st.checkbox(
+                "🗾 JVS話者を結果に表示", 
+                value=st.session_state.diarization_show_jvs,
+                help="認識結果にJVS (Japanese Versatile Speech) コーパスの話者を含めるかどうか"
+            )
+            st.session_state.diarization_show_jvs = show_jvs
+        
+        with col2:
+            # セッション状態の初期化
+            if 'diarization_show_cv' not in st.session_state:
+                st.session_state.diarization_show_cv = False
+            
+            show_cv = st.checkbox(
+                "🌐 Common Voice話者を結果に表示",
+                value=st.session_state.diarization_show_cv,
+                help="認識結果にMozilla Common Voiceの話者を含めるかどうか"
+            )
+            st.session_state.diarization_show_cv = show_cv
         
         # 音声情報表示
         st.subheader("📄 ファイル情報")
@@ -669,7 +700,7 @@ def display_diarization_tab():
         
         # 分析実行
         if st.button("🎭 複数話者分析開始", type="primary"):
-            perform_multi_speaker_analysis(uploaded_file, min_speakers, max_speakers)
+            perform_multi_speaker_analysis(uploaded_file, min_speakers, max_speakers, show_jvs, show_cv)
 
 def initialize_diarization_system():
     """複数話者分析システム初期化"""
@@ -709,7 +740,7 @@ def initialize_diarization_system():
             st.error(f"❌ 初期化エラー: {e}")
             st.info("💡 Hugging Face Token の設定や pyannote.audio の利用規約同意を確認してください")
 
-def perform_multi_speaker_analysis(uploaded_file, min_speakers, max_speakers):
+def perform_multi_speaker_analysis(uploaded_file, min_speakers, max_speakers, show_jvs=True, show_cv=False):
     """複数話者分析実行"""
     with st.spinner("複数話者分析中..."):
         # 一時ファイル保存
@@ -737,7 +768,7 @@ def perform_multi_speaker_analysis(uploaded_file, min_speakers, max_speakers):
             status_text.text("分析完了！")
             
             # 結果表示
-            display_multi_speaker_result(result)
+            display_multi_speaker_result(result, show_jvs, show_cv)
             
         except Exception as e:
             st.error(f"❌ 分析エラー: {e}")
@@ -746,7 +777,7 @@ def perform_multi_speaker_analysis(uploaded_file, min_speakers, max_speakers):
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
-def display_multi_speaker_result(result):
+def display_multi_speaker_result(result, show_jvs=True, show_cv=False):
     """複数話者分析結果表示"""
     st.subheader("🎯 分析結果")
     
@@ -757,13 +788,59 @@ def display_multi_speaker_result(result):
     with col2:
         st.metric("総時間", f"{result.total_duration:.1f}秒")
     with col3:
-        st.metric("セグメント数", len(result.segments))
+        # フィルタリング後のセグメント数も表示
+        if len(result.segments) > 0:
+            # フィルタリング計算
+            filtered_count = 0
+            for segment in result.segments:
+                speaker = segment['recognized_speaker']
+                if speaker.startswith('jvs') and not show_jvs:
+                    continue
+                if (speaker.startswith('cv_') or speaker.startswith('commonvoice_')) and not show_cv:
+                    continue
+                filtered_count += 1
+            
+            if filtered_count != len(result.segments):
+                st.metric("表示セグメント数", f"{filtered_count}/{len(result.segments)}")
+            else:
+                st.metric("セグメント数", len(result.segments))
+        else:
+            st.metric("セグメント数", 0)
     
     # セグメント詳細
     if result.segments:
+        # JVS/Common Voice話者のフィルタリング
+        filtered_segments = []
+        for segment in result.segments:
+            speaker = segment['recognized_speaker']
+            
+            # JVS話者のチェック
+            if speaker.startswith('jvs') and not show_jvs:
+                continue
+            
+            # Common Voice話者のチェック  
+            if (speaker.startswith('cv_') or speaker.startswith('commonvoice_')) and not show_cv:
+                continue
+            
+            filtered_segments.append(segment)
+        
+        # フィルタリング情報の表示
+        filter_info = []
+        if not show_jvs:
+            filter_info.append("JVS話者を除外")
+        if not show_cv:
+            filter_info.append("Common Voice話者を除外")
+        
+        if filter_info:
+            st.caption(f"表示設定: {', '.join(filter_info)}")
+        
         st.subheader("📋 時系列セグメント")
         
-        for i, segment in enumerate(result.segments):
+        if not filtered_segments:
+            st.warning("⚠️ 表示設定により、すべてのセグメントが除外されました。表示設定を調整してください。")
+            return
+        
+        for i, segment in enumerate(filtered_segments):
             # 認識成功のセグメントは緑、失敗は赤で表示
             if segment['recognized_speaker'] != "未認識":
                 status_color = "🟢"
@@ -788,44 +865,217 @@ def display_multi_speaker_result(result):
                     if segment['confidence'] > 0:
                         st.write(f"**信頼度**: {segment['confidence']:.3f}")
         
-        # 話者別サマリー
-        st.subheader("👥 話者別サマリー")
-        speaker_summary = {}
-        for segment in result.segments:
-            speaker = segment['recognized_speaker']
-            if speaker not in speaker_summary:
-                speaker_summary[speaker] = {
-                    'segments': 0,
-                    'total_time': 0.0,
-                    'avg_confidence': 0.0
-                }
-            speaker_summary[speaker]['segments'] += 1
-            speaker_summary[speaker]['total_time'] += segment['duration']
-            if segment['confidence'] > 0:
-                speaker_summary[speaker]['avg_confidence'] += segment['confidence']
+        # 📊 視覚化セクション
+        st.subheader("📊 視覚化")
         
-        # 平均信頼度計算
-        for speaker in speaker_summary:
-            if speaker_summary[speaker]['segments'] > 0:
-                speaker_summary[speaker]['avg_confidence'] /= speaker_summary[speaker]['segments']
+        # タブ構成
+        tab1, tab2 = st.tabs([
+            "⏰ ダイアライゼーション", 
+            "👥 話者別タイムライン"
+        ])
         
-        # 表形式で表示
-        summary_data = []
-        for speaker, data in speaker_summary.items():
-            summary_data.append({
-                '話者': speaker,
-                'セグメント数': data['segments'],
-                '合計時間': f"{data['total_time']:.1f}秒",
-                '平均信頼度': f"{data['avg_confidence']:.3f}" if data['avg_confidence'] > 0 else "N/A"
-            })
+        with tab1:
+            st.caption("pyannote.audioによる話者分離結果")
+            display_diarization_timeline_chart(filtered_segments)
         
-        if summary_data:
-            import pandas as pd
-            df = pd.DataFrame(summary_data)
-            st.dataframe(df, use_container_width=True, hide_index=True)
+        with tab2:
+            st.caption("話者認識結果ベースのタイムライン + 統計")
+            display_speaker_summary_with_timeline(filtered_segments)
     
     else:
         st.warning("⚠️ セグメントが検出されませんでした。音声ファイルや設定を確認してください。")
+
+def display_diarization_timeline_chart(segments):
+    """ダイアライゼーションタイムラインチャート表示"""
+    import plotly.graph_objects as go
+    import plotly.colors as pc
+    
+    if not segments:
+        st.warning("表示するセグメントがありません")
+        return
+    
+    # ダイアライゼーションラベルリストと色の割り当て
+    diarization_labels = list(set([s['diarization_label'] for s in segments]))
+    diarization_labels.sort()  # 一貫した順序
+    colors = pc.qualitative.Set3[:len(diarization_labels)]
+    label_colors = dict(zip(diarization_labels, colors))
+    
+    fig = go.Figure()
+    
+    # 各セグメントをGanttチャートとして追加
+    for segment in segments:
+        diarization_label = segment['diarization_label']
+        
+        # ホバー情報
+        hover_text = (
+            f"ダイアライゼーションラベル: {diarization_label}<br>"
+            f"認識話者: {segment['recognized_speaker']}<br>"
+            f"時間: {segment['start_time']:.1f}s - {segment['end_time']:.1f}s<br>"
+            f"時間長: {segment['duration']:.1f}s<br>"
+            f"信頼度: {segment['confidence']:.3f}"
+        )
+        
+        fig.add_trace(go.Bar(
+            x=[segment['duration']],
+            y=[diarization_label],
+            base=segment['start_time'],
+            orientation='h',
+            name=f"{diarization_label} → {segment['recognized_speaker']}",
+            marker_color=label_colors[diarization_label],
+            hovertemplate=hover_text + "<extra></extra>",
+            showlegend=False
+        ))
+    
+    # レイアウト設定
+    fig.update_layout(
+        title="⏰ ダイアライゼーションタイムライン",
+        xaxis_title="時間（秒）",
+        yaxis_title="ダイアライゼーションラベル",
+        height=max(300, len(diarization_labels) * 60),
+        showlegend=False,
+        barmode='overlay'
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+def display_speaker_summary_with_timeline(segments):
+    """話者別タイムライン + 統計情報の統合表示"""
+    import plotly.graph_objects as go
+    import plotly.colors as pc
+    
+    if not segments:
+        st.warning("表示するセグメントがありません")
+        return
+    
+    # 話者別タイムラインチャート
+    speakers = list(set([s['recognized_speaker'] for s in segments]))
+    speakers.sort()  # 一貫した順序
+    colors = pc.qualitative.Set2[:len(speakers)]
+    speaker_colors = dict(zip(speakers, colors))
+    
+    fig = go.Figure()
+    
+    # 各セグメントをGanttチャートとして追加
+    for segment in segments:
+        speaker = segment['recognized_speaker']
+        
+        # ホバー情報
+        hover_text = (
+            f"認識話者: {speaker}<br>"
+            f"時間: {segment['start_time']:.1f}s - {segment['end_time']:.1f}s<br>"
+            f"時間長: {segment['duration']:.1f}s<br>"
+            f"信頼度: {segment['confidence']:.3f}<br>"
+            f"元ラベル: {segment['diarization_label']}"
+        )
+        
+        fig.add_trace(go.Bar(
+            x=[segment['duration']],
+            y=[speaker],
+            base=segment['start_time'],
+            orientation='h',
+            name=speaker,
+            marker_color=speaker_colors[speaker],
+            hovertemplate=hover_text + "<extra></extra>",
+            showlegend=False
+        ))
+    
+    # レイアウト設定
+    fig.update_layout(
+        title="👥 話者別発話タイムライン",
+        xaxis_title="時間（秒）",
+        yaxis_title="認識話者",
+        height=max(300, len(speakers) * 60),
+        showlegend=False,
+        barmode='overlay'
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # 統計情報を計算・表示
+    speaker_stats = calculate_speaker_statistics(segments)
+    display_speaker_statistics_table(speaker_stats, speaker_colors, segments)
+
+def calculate_speaker_statistics(segments):
+    """話者別統計計算"""
+    speaker_stats = {}
+    
+    for segment in segments:
+        speaker = segment['recognized_speaker']
+        if speaker not in speaker_stats:
+            speaker_stats[speaker] = {
+                'segments': 0,
+                'total_time': 0.0,
+                'total_confidence': 0.0,
+                'avg_confidence': 0.0
+            }
+        
+        speaker_stats[speaker]['segments'] += 1
+        speaker_stats[speaker]['total_time'] += segment['duration']
+        if segment['confidence'] > 0:
+            speaker_stats[speaker]['total_confidence'] += segment['confidence']
+    
+    # 平均信頼度計算
+    for speaker in speaker_stats:
+        if speaker_stats[speaker]['segments'] > 0:
+            speaker_stats[speaker]['avg_confidence'] = (
+                speaker_stats[speaker]['total_confidence'] / 
+                speaker_stats[speaker]['segments']
+            )
+    
+    return speaker_stats
+
+def display_speaker_statistics_table(speaker_stats, speaker_colors, segments):
+    """話者別統計テーブル表示"""
+    st.subheader("📊 話者別統計")
+    
+    if not speaker_stats:
+        st.warning("表示する統計がありません")
+        return
+    
+    # 合計時間計算
+    total_time = sum([s['duration'] for s in segments])
+    
+    # テーブルヘッダー
+    cols = st.columns([3, 1, 1, 1, 1])
+    with cols[0]:
+        st.write("**話者**")
+    with cols[1]:
+        st.write("**セグメント数**")
+    with cols[2]:
+        st.write("**合計時間**")
+    with cols[3]:
+        st.write("**時間割合**")
+    with cols[4]:
+        st.write("**平均信頼度**")
+    
+    st.divider()
+    
+    # 各話者の統計を合計時間順で表示
+    sorted_speakers = sorted(
+        speaker_stats.items(), 
+        key=lambda x: x[1]['total_time'], 
+        reverse=True
+    )
+    
+    for speaker, stats in sorted_speakers:
+        time_ratio = (stats['total_time'] / total_time * 100) if total_time > 0 else 0
+        
+        cols = st.columns([3, 1, 1, 1, 1])
+        with cols[0]:
+            # 話者名に色インジケーター付き
+            color = speaker_colors.get(speaker, "#888888")
+            st.markdown(f'<span style="color: {color};">●</span> **{speaker}**', unsafe_allow_html=True)
+        with cols[1]:
+            st.write(f"{stats['segments']}")
+        with cols[2]:
+            st.write(f"{stats['total_time']:.1f}秒")
+        with cols[3]:
+            st.write(f"{time_ratio:.1f}%")
+        with cols[4]:
+            if stats['avg_confidence'] > 0:
+                st.write(f"{stats['avg_confidence']:.3f}")
+            else:
+                st.write("N/A")
 
 if __name__ == "__main__":
     main()

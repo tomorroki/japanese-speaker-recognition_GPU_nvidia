@@ -328,7 +328,17 @@ class JapaneseSpeakerRecognizer:
             
             # 埋め込みデータを準備
             speaker_ids = list(self.speaker_embeddings.keys())
-            embeddings = np.array(list(self.speaker_embeddings.values()))
+            embedding_list = []
+            
+            # 全ての埋め込みを同じ形状に統一
+            for speaker_id in speaker_ids:
+                embedding = self.speaker_embeddings[speaker_id]
+                # 埋め込みを1次元に平坦化
+                if embedding.ndim > 1:
+                    embedding = embedding.flatten()
+                embedding_list.append(embedding)
+            
+            embeddings = np.array(embedding_list)
             
             # 設定情報も保存（キャッシュ無効化チェック用）
             cache_config = {
@@ -368,7 +378,7 @@ class JapaneseSpeakerRecognizer:
                 return False
             
             # ファイルから読み込み
-            data = np.load(cache_file)
+            data = np.load(cache_file, allow_pickle=True)
             embeddings = data['embeddings']
             speaker_ids = data['speaker_ids']
             

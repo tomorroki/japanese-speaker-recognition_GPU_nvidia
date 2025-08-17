@@ -624,9 +624,13 @@ class JapaneseSpeakerRecognizer:
             
             # 各話者との類似度計算（背景話者は除外）
             scores = {}
+            total_speakers = len(self.speaker_embeddings)
+            excluded_count = 0
+            
             for speaker_id, speaker_embedding in self.speaker_embeddings.items():
                 # 背景話者（JVS・Common Voice）は候補から除外
                 if self.background_loader.should_exclude_speaker(speaker_id):
+                    excluded_count += 1
                     continue
                     
                 similarity = cosine_similarity(
@@ -634,6 +638,8 @@ class JapaneseSpeakerRecognizer:
                     speaker_embedding.reshape(1, -1)
                 )[0, 0]
                 scores[speaker_id] = float(similarity)
+            
+            self.logger.info(f"話者識別: 総話者数={total_speakers}, 除外={excluded_count}, 計算対象={len(scores)}")
             
             if not scores:
                 self.logger.error("識別可能な話者がいません（全て背景話者として除外されました）")
@@ -669,15 +675,13 @@ class JapaneseSpeakerRecognizer:
             # 信頼度の計算
             confidence = normalized_score if normalized_score is not None else best_score
             
-            # トップ10スコアを取得
-            top_10_scores = dict(sorted(scores.items(), key=lambda x: x[1], reverse=True)[:10])
-            
+            # 全スコアを格納（フィルタリングはUI側で実施）
             result = RecognitionResult(
                 speaker_id=best_speaker,
                 confidence=confidence,
                 raw_score=best_score,
                 normalized_score=normalized_score,
-                all_scores=top_10_scores
+                all_scores=scores
             )
             
             self.logger.info(f"認識結果: {best_speaker} (信頼度: {confidence:.3f})")
@@ -704,11 +708,10 @@ class JapaneseSpeakerRecognizer:
         
         # フィルタリングしながらトップ10を取得
         filtered_scores = {}
-        count = 0
         
         for speaker_id, score in sorted_scores:
-            # 10個取得できたら終了
-            if count >= 10:
+            # 既に10個取得できたら終了
+            if len(filtered_scores) >= 10:
                 break
                 
             # JVS話者の判定
@@ -721,9 +724,8 @@ class JapaneseSpeakerRecognizer:
                 if not show_cv:
                     continue
             
-            # その他の話者は常に表示
+            # 条件を満たす話者を追加
             filtered_scores[speaker_id] = score
-            count += 1
         
         return filtered_scores
     

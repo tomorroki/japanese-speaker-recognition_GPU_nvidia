@@ -141,7 +141,15 @@ def setup_sidebar():
                 if hasattr(st.session_state.recognizer, 'dataset_manager'):
                     st.session_state.recognizer.dataset_manager.config = st.session_state.recognizer.config
                 
-                st.sidebar.info("⚠️ 設定変更後は「🔄 DB再構築」を実行してください")
+                # 設定変更時に自動でデータベース再構築
+                with st.spinner("設定変更によりデータベースを再構築中..."):
+                    try:
+                        enrolled_count = st.session_state.recognizer.build_speaker_database(use_cache=False)
+                        st.session_state.speakers_enrolled = enrolled_count
+                        st.sidebar.success(f"✅ データベース再構築完了！{enrolled_count}名の話者を登録")
+                    except Exception as e:
+                        st.sidebar.error(f"❌ 再構築エラー: {str(e)}")
+                        st.sidebar.info("⚠️ 手動で「🔄 DB再構築」を実行してください")
         
         # システム情報表示
         if st.sidebar.button("ℹ️ システム情報"):
@@ -307,8 +315,30 @@ def display_recognition_tab():
     if 'show_common_voice_in_results' not in st.session_state:
         st.session_state.show_common_voice_in_results = show_cv
     
-    st.session_state.show_jvs_in_results = show_jvs
-    st.session_state.show_common_voice_in_results = show_cv
+    # 設定が変更された場合の処理
+    if (st.session_state.show_jvs_in_results != show_jvs or 
+        st.session_state.show_common_voice_in_results != show_cv):
+        
+        # セッション状態を更新
+        st.session_state.show_jvs_in_results = show_jvs
+        st.session_state.show_common_voice_in_results = show_cv
+        
+        # 設定ファイルも更新
+        if st.session_state.recognizer:
+            st.session_state.recognizer.config["ui"]["show_jvs_in_results"] = show_jvs
+            st.session_state.recognizer.config["ui"]["show_common_voice_in_results"] = show_cv
+            
+            # 設定ファイルに保存
+            try:
+                import json
+                with open("config.json", 'w', encoding='utf-8') as f:
+                    json.dump(st.session_state.recognizer.config, f, indent=2, ensure_ascii=False)
+            except Exception as e:
+                st.error(f"設定保存エラー: {e}")
+    else:
+        # 変更がない場合はセッション状態を更新するだけ
+        st.session_state.show_jvs_in_results = show_jvs
+        st.session_state.show_common_voice_in_results = show_cv
     
     st.divider()
     
@@ -384,47 +414,77 @@ def display_recognition_result(result: RecognitionResult):
     """認識結果の表示"""
     st.subheader("🎯 識別結果")
     
+    # 表示設定に基づいてスコアをフィルタリング
+    show_jvs = getattr(st.session_state, 'show_jvs_in_results', True)
+    show_cv = getattr(st.session_state, 'show_common_voice_in_results', False)
+    
+    # 全スコアからフィルタリング済みスコアを取得
+    if result.all_scores:
+        filtered_scores = st.session_state.recognizer.filter_scores_for_display(
+            result.all_scores, show_jvs, show_cv
+        )
+        
+        # フィルタリング後の最上位話者を決定
+        filtered_best_speaker = None
+        filtered_best_score = None
+        if filtered_scores:
+            filtered_best_speaker = max(filtered_scores, key=filtered_scores.get)
+            filtered_best_score = filtered_scores[filtered_best_speaker]
+    else:
+        filtered_scores = {}
+        filtered_best_speaker = None
+        filtered_best_score = None
+    
+    # 表示する話者と信頼度を決定
+    display_speaker = result.speaker_id
+    display_confidence = result.confidence
+    display_raw_score = result.raw_score
+    
+    # フィルタリング設定でオリジナルの最上位話者が除外される場合
+    if filtered_best_speaker and filtered_best_speaker != result.speaker_id:
+        # JVS話者が除外される場合の判定
+        is_original_jvs = st.session_state.recognizer.dataset_manager.is_jvs_speaker(result.speaker_id)
+        is_original_cv = st.session_state.recognizer.dataset_manager.is_common_voice_speaker(result.speaker_id)
+        
+        if (is_original_jvs and not show_jvs) or (is_original_cv and not show_cv):
+            display_speaker = filtered_best_speaker
+            display_raw_score = filtered_best_score
+            # 信頼度は同じロジックで計算（簡略化）
+            display_confidence = filtered_best_score
+    
     # メイン結果
     col1, col2, col3 = st.columns(3)
     
     with col1:
         st.metric(
             label="識別された話者",
-            value=result.speaker_id,
+            value=display_speaker,
             delta=None
         )
     
     with col2:
-        confidence_color = "🟢" if result.confidence > 0.5 else "🟡" if result.confidence > 0.25 else "🔴"
+        confidence_color = "🟢" if display_confidence > 0.5 else "🟡" if display_confidence > 0.25 else "🔴"
         st.metric(
             label="信頼度",
-            value=f"{result.confidence:.3f}",
+            value=f"{display_confidence:.3f}",
             delta=confidence_color
         )
     
     with col3:
         st.metric(
             label="生スコア",
-            value=f"{result.raw_score:.3f}"
+            value=f"{display_raw_score:.3f}"
         )
     
     # しきい値チェック
     threshold = st.session_state.recognizer.threshold
-    if result.confidence > threshold:
+    if display_confidence > threshold:
         st.success(f"✅ 信頼度がしきい値({threshold:.3f})を上回りました")
     else:
         st.warning(f"⚠️ 信頼度がしきい値({threshold:.3f})を下回りました")
     
     # 詳細スコア表示（トップ10）
-    if result.all_scores:
-        # 表示設定に基づいてスコアをフィルタリング
-        show_jvs = getattr(st.session_state, 'show_jvs_in_results', True)
-        show_cv = getattr(st.session_state, 'show_common_voice_in_results', False)
-        
-        filtered_scores = st.session_state.recognizer.filter_scores_for_display(
-            result.all_scores, show_jvs, show_cv
-        )
-        
+    if filtered_scores:
         st.subheader("📊 トップ10話者スコア")
         filter_info = []
         if not show_jvs:
@@ -437,7 +497,7 @@ def display_recognition_result(result: RecognitionResult):
             caption += f" ({', '.join(filter_info)})"
         st.caption(caption)
         
-        display_score_chart(filtered_scores, result.speaker_id)
+        display_score_chart(filtered_scores, display_speaker)
     
     # 正規化スコア情報
     if result.normalized_score is not None:

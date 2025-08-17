@@ -63,14 +63,6 @@ def setup_sidebar():
     st.sidebar.write(f"👥 登録話者数: {st.session_state.speakers_enrolled}")
     
     if st.session_state.model_loaded:
-        # 話者データベース再構築
-        col1, col2 = st.sidebar.columns(2)
-        with col1:
-            if st.button("🔄 DB再構築"):
-                rebuild_speaker_database()
-        with col2:
-            if st.button("🗑️ 強制再構築"):
-                rebuild_speaker_database(use_cache=False)
         
         # 埋め込みキャッシュ管理
         st.sidebar.subheader("💾 埋め込みキャッシュ")
@@ -99,57 +91,6 @@ def setup_sidebar():
                     except Exception as e:
                         st.sidebar.error(f"❌ 削除失敗: {e}")
         
-        # データセット設定
-        st.sidebar.subheader("🎯 データセット設定")
-        
-        if st.session_state.recognizer:
-            # JVS話者の包含設定
-            current_allow_jvs = st.session_state.recognizer.config["datasets"]["allow_jvs_speakers"]
-            allow_jvs = st.sidebar.checkbox(
-                "🗾 JVS話者を識別対象に含める", 
-                value=current_allow_jvs,
-                help="JVS (Japanese Versatile Speech) コーパスの話者も識別候補にする"
-            )
-            
-            # Common Voice話者の包含設定  
-            current_allow_cv = st.session_state.recognizer.config["datasets"]["allow_common_voice_speakers"]
-            allow_cv = st.sidebar.checkbox(
-                "🌐 Common Voice話者を識別対象に含める",
-                value=current_allow_cv,
-                help="Mozilla Common Voiceの話者も識別候補にする"
-            )
-            
-            # 背景話者除外の設定
-            current_exclude_bg = st.session_state.recognizer.config["datasets"]["exclude_background_speakers"]
-            exclude_bg = st.sidebar.checkbox(
-                "🚫 背景話者を自動除外",
-                value=current_exclude_bg,
-                help="背景モデル用話者を識別候補から除外"
-            )
-            
-            # 設定が変更された場合の処理
-            if (allow_jvs != current_allow_jvs or 
-                allow_cv != current_allow_cv or 
-                exclude_bg != current_exclude_bg):
-                
-                # 設定を更新
-                st.session_state.recognizer.config["datasets"]["allow_jvs_speakers"] = allow_jvs
-                st.session_state.recognizer.config["datasets"]["allow_common_voice_speakers"] = allow_cv  
-                st.session_state.recognizer.config["datasets"]["exclude_background_speakers"] = exclude_bg
-                
-                # データセットマネージャーの設定も更新
-                if hasattr(st.session_state.recognizer, 'dataset_manager'):
-                    st.session_state.recognizer.dataset_manager.config = st.session_state.recognizer.config
-                
-                # 設定変更時に自動でデータベース再構築
-                with st.spinner("設定変更によりデータベースを再構築中..."):
-                    try:
-                        enrolled_count = st.session_state.recognizer.build_speaker_database(use_cache=False)
-                        st.session_state.speakers_enrolled = enrolled_count
-                        st.sidebar.success(f"✅ データベース再構築完了！{enrolled_count}名の話者を登録")
-                    except Exception as e:
-                        st.sidebar.error(f"❌ 再構築エラー: {str(e)}")
-                        st.sidebar.info("⚠️ 手動で「🔄 DB再構築」を実行してください")
         
         # システム情報表示
         if st.sidebar.button("ℹ️ システム情報"):
@@ -202,22 +143,6 @@ def initialize_system():
         except Exception as e:
             st.error(f"❌ 初期化エラー: {str(e)}")
 
-def rebuild_speaker_database(use_cache: bool = True):
-    """話者データベースの再構築"""
-    if st.session_state.recognizer is None:
-        st.error("システムが初期化されていません")
-        return
-    
-    cache_text = "キャッシュ使用" if use_cache else "強制再構築"
-    with st.spinner(f"話者データベースを再構築中...({cache_text})"):
-        try:
-            enrolled_count = st.session_state.recognizer.build_speaker_database(use_cache=use_cache)
-            st.session_state.speakers_enrolled = enrolled_count
-            st.success(f"✅ 話者データベース再構築完了！{enrolled_count}名の話者を登録")
-            time.sleep(1)
-            st.rerun()
-        except Exception as e:
-            st.error(f"❌ 再構築エラー: {str(e)}")
 
 def show_system_info():
     """システム情報の表示"""

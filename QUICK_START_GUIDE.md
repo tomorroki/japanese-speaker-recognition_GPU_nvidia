@@ -55,7 +55,7 @@ enroll\
 ### Step 4: アプリ起動（30秒）
 
 ```bash
-streamlit run app.py
+ streamlit run app.py          
 ```
 
 ブラウザが自動で開く（開かない場合は http://localhost:8501 にアクセス）

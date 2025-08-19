@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "disable_existing_loggers": false,
+  "formatters": {
+    "detailed": {
+      "format": "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s",
+      "datefmt": "%Y-%m-%d %H:%M:%S"
+    },
+    "simple": {
+      "format": "%(levelname)s - %(name)s - %(message)s"
+    },
+    "json": {
+      "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
+      "format": "%(asctime)s %(name)s %(levelname)s %(funcName)s %(lineno)d %(message)s"
+    }
+  },
+  "handlers": {
+    "console": {
+      "class": "logging.StreamHandler",
+      "level": "INFO",
+      "formatter": "simple",
+      "stream": "ext://sys.stdout"
+    },
+    "file": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "level": "DEBUG",
+      "formatter": "detailed",
+      "filename": "logs/application.log",
+      "maxBytes": 10485760,
+      "backupCount": 5,
+      "encoding": "utf8"
+    },
+    "error_file": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "level": "ERROR",
+      "formatter": "detailed",
+      "filename": "logs/errors.log",
+      "maxBytes": 10485760,
+      "backupCount": 5,
+      "encoding": "utf8"
+    },
+    "segmentation_file": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "level": "DEBUG",
+      "formatter": "detailed",
+      "filename": "logs/segmentation.log",
+      "maxBytes": 5242880,
+      "backupCount": 3,
+      "encoding": "utf8"
+    }
+  },
+  "loggers": {
+    "ManualSpeakerSegmentatorV2": {
+      "level": "DEBUG",
+      "handlers": [
+        "console",
+        "file",
+        "segmentation_file"
+      ],
+      "propagate": false
+    },
+    "RecognitionManager": {
+      "level": "DEBUG",
+      "handlers": [
+        "console",
+        "file",
+        "segmentation_file"
+      ],
+      "propagate": false
+    },
+    "AudioLoader": {
+      "level": "INFO",
+      "handlers": [
+        "console",
+        "file"
+      ],
+      "propagate": false
+    },
+    "SegmentManager": {
+      "level": "INFO",
+      "handlers": [
+        "console",
+        "file",
+        "segmentation_file"
+      ],
+      "propagate": false
+    },
+    "ExportManager": {
+      "level": "INFO",
+      "handlers": [
+        "console",
+        "file"
+      ],
+      "propagate": false
+    }
+  },
+  "root": {
+    "level": "WARNING",
+    "handlers": [
+      "console",
+      "error_file"
+    ]
+  }
+}

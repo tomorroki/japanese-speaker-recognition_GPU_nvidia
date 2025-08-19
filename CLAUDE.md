@@ -28,7 +28,7 @@ python create_embeddings.py --jvs-path [JVS_PATH] --cv-max-samples 5000
 # Install GPU-accelerated PyTorch first
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
 
-# Then install remaining dependencies
+# Then install remaining dependencies (including streamlit-advanced-audio)
 pip install -r requirements.txt
 ```
 
@@ -74,11 +74,11 @@ This system combines single speaker recognition with multi-speaker diarization a
 ### Core Components
 
 **Main Application (`app.py`)**
-- Streamlit web interface with 4-tab structure
-- Session state management for both single and multi-speaker systems
+- Streamlit web interface with 5-tab structure
+- Session state management for single, multi-speaker, and manual segmentation systems
 - Real-time model initialization and caching controls
 - Configuration management through UI controls
-- Tabs: 🎤 Single Speaker, 🎭 Multi-Speaker Analysis, 👥 Speaker Management, 📊 Statistics
+- Tabs: 🎤 Single Speaker, 🎭 Multi-Speaker Analysis, 🔊 Manual Speaker Segmentation, 👥 Speaker Management, 📊 Statistics
 
 **Single Speaker Recognition (`enhanced_speaker_recognition.py`)**
 - Primary `JapaneseSpeakerRecognizer` class
@@ -107,6 +107,13 @@ This system combines single speaker recognition with multi-speaker diarization a
 - Configurable exclusion rules for background speakers
 - Audio file discovery and validation
 
+**Manual Speaker Segmentation (`manual_speaker_segmentation.py`)**
+- `ManualSpeakerSegmentator` class for user-guided audio segmentation
+- Audio waveform visualization and interactive segment creation
+- Manual segment time specification with validation and conflict detection
+- Integration with existing recognition system for segment-by-segment analysis
+- Export functionality for CSV, JSON, SRT subtitle formats
+
 **Background Processing (`background_loader.py`)**
 - `BackgroundEmbeddingLoader` manages pre-computed embeddings
 - Loads JVS and Common Voice embeddings from `.npz` files
@@ -126,6 +133,24 @@ This system combines single speaker recognition with multi-speaker diarization a
 4. **Recognition**: Each segment is recognized against enrolled speakers
 5. **Integration**: Results combined into comprehensive timeline analysis
 6. **Visualization**: Multiple chart types (diarization timeline, speaker timeline, statistics)
+
+### Manual Speaker Segmentation Architecture
+
+#### User-Guided Segmentation Pipeline
+1. **Audio Upload**: User selects multi-speaker or complex audio file via Streamlit
+2. **Waveform Display**: librosa-powered audio analysis with Plotly visualization
+3. **Manual Segmentation**: User creates segments by specifying start/end times with validation
+4. **Batch Recognition**: Each segment processed through ECAPA-TDNN recognition pipeline
+5. **Speaker Assignment**: User reviews Top-5 candidates and assigns final speaker labels
+6. **Timeline Visualization**: Results displayed in speaker-timeline format identical to automatic analysis
+7. **Export**: Multiple format options (CSV, JSON, SRT) for external use
+
+#### Data Flow
+1. **Audio Loading**: librosa loads audio with full sample rate preservation
+2. **Waveform Processing**: Time-domain visualization for user segment identification
+3. **Segment Validation**: Overlap detection, minimum duration checks, time range validation
+4. **Recognition Integration**: Seamless use of existing `JapaneseSpeakerRecognizer.recognize_segment()`
+5. **Result Compilation**: Timeline data structure compatible with multi-speaker analysis displays
 
 ### Configuration System
 
@@ -173,15 +198,16 @@ Central configuration in `config.json` controls all aspects:
 
 ```
 japanese-speaker-recognition_GPU_nvidia/
-├── app.py                                    # Main Streamlit application (4 tabs)
+├── app.py                                    # Main Streamlit application (5 tabs)
 ├── enhanced_speaker_recognition.py           # Single speaker recognition system
-├── speaker_diarization.py                   # Multi-speaker analysis system (NEW)
-├── segment_processor.py                     # Audio segment processing (NEW)
+├── speaker_diarization.py                   # Multi-speaker analysis system
+├── manual_speaker_segmentation.py           # Manual speaker segmentation system (NEW)
+├── segment_processor.py                     # Audio segment processing
 ├── dataset_manager.py                       # Dataset and speaker management
 ├── background_loader.py                     # Background embedding management
 ├── config.json                              # Comprehensive configuration
 ├── .env                                     # Environment variables (HF_TOKEN)
-├── requirements.txt                         # Dependencies (including pyannote.audio)
+├── requirements.txt                         # Dependencies (including librosa, pyannote.audio)
 
 # Embedding files
 ├── background_jvs_ecapa.npz                 # JVS background embeddings (3.8MB)
@@ -242,6 +268,11 @@ japanese-speaker-recognition_GPU_nvidia/
 - Input: Multi-speaker audio (any length, 2-10 speakers)
 - Processing: pyannote.audio diarization → segment recognition
 - Output: Timeline analysis with speaker switching patterns
+
+#### Manual Speaker Segmentation
+- Input: Multi-speaker or complex audio (any length, any number of speakers)
+- Processing: User-defined segmentation → individual segment recognition
+- Output: Manual timeline with user-validated speaker assignments and export options
 
 ### Environment Variables
 

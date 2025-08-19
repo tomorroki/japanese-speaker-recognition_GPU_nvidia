@@ -52,6 +52,10 @@ if 'manual_show_cv' not in st.session_state:
     st.session_state.manual_show_cv = False
 if 'input_reset_counter' not in st.session_state:
     st.session_state.input_reset_counter = 0
+if 'manual_segment_start_time' not in st.session_state:
+    st.session_state.manual_segment_start_time = 0.0
+if 'manual_segment_end_time' not in st.session_state:
+    st.session_state.manual_segment_end_time = 0.0
 
 # 音声再生コントロール用のセッション状態
 if 'audio_player_state' not in st.session_state:
@@ -1382,6 +1386,41 @@ def set_playback_position(position):
     if player_state['is_playing']:
         player_state['playback_start_timestamp'] = time.time()
 
+def set_segment_time_from_current_position(time_type: str):
+    """現在の再生位置をセグメント時間に設定
+    
+    Args:
+        time_type: 'start' または 'end'
+    """
+    # デバッグ用: 再生状態を確認
+    player_state = st.session_state.audio_player_state
+    current_pos = update_current_playback_position()
+    
+    # 現在の再生状態をログ出力
+    st.write(f"🔍 デバッグ情報:")
+    st.write(f"- 再生中: {player_state['is_playing']}")
+    st.write(f"- 現在位置: {current_pos:.1f}秒")
+    st.write(f"- 一時停止位置: {player_state['playback_paused_position']:.1f}秒")
+    st.write(f"- 現在位置(current_position): {player_state['current_position']:.1f}秒")
+    
+    # より確実な現在位置取得
+    if player_state['is_playing']:
+        # 再生中の場合
+        final_pos = current_pos
+    else:
+        # 停止中の場合は current_position を使用
+        final_pos = player_state.get('current_position', 0.0)
+    
+    if time_type == 'start':
+        st.session_state.manual_segment_start_time = final_pos
+        st.success(f"✅ 開始時間を {final_pos:.1f}秒 に設定しました")
+    elif time_type == 'end':
+        st.session_state.manual_segment_end_time = final_pos
+        st.success(f"✅ 終了時間を {final_pos:.1f}秒 に設定しました")
+    
+    st.session_state.input_reset_counter += 1
+    st.rerun()
+
 def start_playback_from_position(position=None):
     """指定位置から再生開始"""
     import time
@@ -1479,9 +1518,9 @@ def display_audio_controls(segmentator):
         
         new_position = st.slider(
             "再生位置 (秒)",
-            min_value=play_start,
-            max_value=play_end,
-            value=current_pos,
+            min_value=float(play_start),
+            max_value=float(play_end),
+            value=float(current_pos),
             step=0.1,
             format="%.1f",
             key="position_slider"
@@ -1495,9 +1534,9 @@ def display_audio_controls(segmentator):
         if st.button("📍 位置設定", key="set_position"):
             position_input = st.number_input(
                 "位置 (秒)",
-                min_value=play_start,
-                max_value=play_end,
-                value=current_pos,
+                min_value=float(play_start),
+                max_value=float(play_end),
+                value=float(current_pos),
                 step=0.1,
                 key="manual_position_input"
             )
@@ -1835,26 +1874,49 @@ def display_audio_control_panel(segmentator, player_state):
     """右側音声コントロールパネル"""
     st.markdown("### 📋 範囲選択とセグメント追加")
     
-    # 数値入力による範囲選択
+    # 数値入力による範囲選択（現在位置ボタン付き）
     col_a, col_b = st.columns(2)
     with col_a:
-        quick_start = st.number_input(
-            "開始(秒)", 
-            min_value=0.0, 
-            max_value=segmentator.audio_duration,
-            value=0.0, 
-            step=0.5,
-            key=f"quick_start_{st.session_state.input_reset_counter}"
-        )
+        # 開始時間設定エリア
+        st.markdown("**開始時間**")
+        subcol1, subcol2 = st.columns([1, 3])
+        with subcol1:
+            if st.button("📍", key="set_start_from_current", 
+                        help="現在の再生位置を開始時間に設定"):
+                set_segment_time_from_current_position('start')
+        with subcol2:
+            quick_start = st.number_input(
+                "開始(秒)", 
+                min_value=0.0, 
+                max_value=float(segmentator.audio_duration),
+                value=float(st.session_state.manual_segment_start_time), 
+                step=0.5,
+                key=f"quick_start_{st.session_state.input_reset_counter}",
+                label_visibility="collapsed"
+            )
+            # セッション状態を更新
+            st.session_state.manual_segment_start_time = quick_start
+            
     with col_b:
-        quick_end = st.number_input(
-            "終了(秒)", 
-            min_value=0.0, 
-            max_value=segmentator.audio_duration,
-            value=3.0, 
-            step=0.5,
-            key=f"quick_end_{st.session_state.input_reset_counter}"
-        )
+        # 終了時間設定エリア
+        st.markdown("**終了時間**")
+        subcol1, subcol2 = st.columns([1, 3])
+        with subcol1:
+            if st.button("📍", key="set_end_from_current",
+                        help="現在の再生位置を終了時間に設定"):
+                set_segment_time_from_current_position('end')
+        with subcol2:
+            quick_end = st.number_input(
+                "終了(秒)", 
+                min_value=0.0, 
+                max_value=float(segmentator.audio_duration),
+                value=float(st.session_state.manual_segment_end_time), 
+                step=0.5,
+                key=f"quick_end_{st.session_state.input_reset_counter}",
+                label_visibility="collapsed"
+            )
+            # セッション状態を更新
+            st.session_state.manual_segment_end_time = quick_end
     
     # Phase 3: 再生範囲コピー機能（audix選択範囲も考慮）
     st.markdown("**🔄 範囲連携**")
@@ -1873,10 +1935,13 @@ def display_audio_control_panel(segmentator, player_state):
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
         if st.button("📍 この範囲を選択", key="quick_select"):
-            if quick_end > quick_start:
-                player_state['selection_start'] = quick_start
-                player_state['selection_end'] = quick_end
-                st.success(f"範囲選択: {quick_start:.1f}s - {quick_end:.1f}s")
+            # セッション状態から最新の値を使用
+            start_time = st.session_state.manual_segment_start_time
+            end_time = st.session_state.manual_segment_end_time
+            if end_time > start_time:
+                player_state['selection_start'] = start_time
+                player_state['selection_end'] = end_time
+                st.success(f"範囲選択: {start_time:.1f}s - {end_time:.1f}s")
                 st.rerun()
             else:
                 st.error("終了時間は開始時間より後にしてください")

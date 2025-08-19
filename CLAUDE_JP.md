@@ -4,7 +4,7 @@
 
 ## システム概要
 
-これはSpeechBrainのECAPA-TDNNモデルとpyannote.audioを使用した日本語話者認識・複数話者分析システムです。単一話者識別と包括的な複数話者ダイアライゼーションによる時系列分析の両方を提供します。
+これはSpeechBrainのECAPA-TDNNモデルとpyannote.audioを使用した日本語話者認識・複数話者分析システムです。単一話者識別、包括的な複数話者ダイアライゼーションによる時系列分析、そしてstreamlit-advanced-audio (audix) による真のリアルタイム音声同期を使った手動話者分離機能を提供します。
 
 ## よく使用するコマンド
 
@@ -28,7 +28,7 @@ python create_embeddings.py --jvs-path [JVS_PATH] --cv-max-samples 5000
 # 最初にGPU対応PyTorchをインストール
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
 
-# その後、残りの依存関係をインストール
+# その後、残りの依存関係をインストール（streamlit-advanced-audio含む）
 pip install -r requirements.txt
 ```
 
